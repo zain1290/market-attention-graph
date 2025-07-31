@@ -5,10 +5,10 @@ import duckdb
 from datetime import datetime, timezone
 from pathlib import Path
 from random import randint
-
 import pandas as pd
 from duckdb.duckdb import execute
 from twikit import Client, TooManyRequests, errors
+from src.data.database_utils import publish_news
 
 # CONFIGURATION
 MIN_FOLLOWERS = 10000
@@ -24,15 +24,12 @@ COMPANY_NAMES = {
 keywords = [key for key in COMPANY_NAMES.keys()]
 QUERY = " OR ".join(f'"{kw}"' for kw in keywords)
 
-DB_PATH = (Path(__file__).resolve().parent.parent / "data" / "market_attention.duckdb")
-DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-
 def hash_id(text):
     return hashlib.sha256(text.encode()).hexdigest()
 
 async def authenticate():
     client = Client(language='en-US')
-    client.load_cookies("cookies.json")
+    client.load_cookies(str(Path(__file__).parent / "cookies.json"))
     await client._get_guest_token()
     return client
 
@@ -43,21 +40,7 @@ async def latest_tweets(client: Client):
         await client._get_guest_token()
         return await client.search_tweet(QUERY, "Latest", count=100)
 
-def save_to_db(con, tweets):
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS news_articles (
-            article_id TEXT PRIMARY KEY,
-            title TEXT,
-            timestamp TIMESTAMP
-        )
-    """)
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS ticker_mentions (
-            article_id TEXT,
-            ticker TEXT
-        )
-    """)
-
+async def save_to_db(tweets):
     for tweet in tweets:
         if tweet.user.followers_count < MIN_FOLLOWERS:
             continue
@@ -75,28 +58,14 @@ def save_to_db(con, tweets):
         if not mentions:
             continue
 
-        try:
-            con.execute("""
-                INSERT INTO news_articles (article_id, title, timestamp)
-                VALUES (?, ?, ?)
-            """, (tweet_id, title, timestamp))
-        except duckdb.ConstraintException:
-            continue
+        await publish_news(tweet_id, title, timestamp, mentions)
 
-        for ticker in mentions:
-            con.execute("""
-                INSERT INTO ticker_mentions (article_id, ticker)
-                VALUES (?, ?)
-            """, (tweet_id, ticker))
-
-async def main_loop():
-    con = duckdb.connect(DB_PATH)
+async def main():
     client = await authenticate()
     tweet_count = 0
 
     while True:
         try:
-            # tweets, cursor = await poll_tweets(client, cursor)
             tweets = await latest_tweets(client)
         except TooManyRequests as e:
             reset_time = datetime.fromtimestamp(e.rate_limit_reset)
@@ -107,7 +76,7 @@ async def main_loop():
             continue
 
         if tweets:
-            save_to_db(con, tweets)
+            await save_to_db(tweets)
             tweet_count += len(tweets)
             print(f"[{datetime.utcnow()}] Stored {len(tweets)} tweets (total {tweet_count} tweets)")
         else:
@@ -118,15 +87,6 @@ async def main_loop():
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main_loop())
-        # con = duckdb.connect(DB_PATH)
-        # pd.set_option("display.max_rows", None)  # show all when printing
-        # df = con.execute("SELECT ticker, COUNT(ticker) AS mentions FROM ticker_mentions GROUP BY ticker ORDER BY mentions").fetchdf()
-        # print(df)
-
-        # con.execute("""
-        #     DELETE FROM news_articles;
-        #     DELETE FROM ticker_mentions;
-        # """)
+        asyncio.run(main())
     except KeyboardInterrupt:
         print("Twitter stream stopped.")

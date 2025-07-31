@@ -6,6 +6,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from urllib.parse import quote_plus
 import pandas as pd
+from src.data.database_utils import publish_news
 
 COMPANY_NAMES = {
     "Google": "GOOGL",
@@ -20,9 +21,6 @@ keywords = [key for key in COMPANY_NAMES.keys()]
 print(keywords)
 GDELT_URL = "https://api.gdeltproject.org/api/v2/doc/doc?query={query}&mode=ArtList&maxrecords=250&STARTDATETIME={start}&ENDDATETIME={end}&page={page}&format=json"
 QUERY = "(" + " OR ".join(f'"{kw}"' for kw in keywords) + ")"
-DB_PATH = (Path(__file__).resolve().parent.parent / "data" / "market_attention.duckdb")
-DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-
 
 def hash_id(text):
     return hashlib.sha256(text.encode()).hexdigest()
@@ -48,23 +46,7 @@ async def fetch_news():
 
     return all_articles
 
-def save_to_db(con, articles):
-
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS news_articles (
-            article_id TEXT PRIMARY KEY,
-            title TEXT,
-            timestamp TIMESTAMP
-        )
-    """)
-
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS ticker_mentions (
-            article_id TEXT,
-            ticker TEXT
-        )
-    """)
-
+async def save_to_db(articles):
     for art in articles:
         article_id = hash_id(art["url"])
         title = art.get("title", "")
@@ -80,46 +62,21 @@ def save_to_db(con, articles):
         if not mentions:
             continue
 
-        try:
-            con.execute("""
-                INSERT INTO news_articles (article_id, title, timestamp)
-                VALUES (?, ?, ?)
-            """, (article_id, title, timestamp))
-        except duckdb.ConstraintException:
-            continue
-
-        for ticker in mentions:
-            con.execute("""
-                INSERT INTO ticker_mentions (article_id, ticker)
-                VALUES (?, ?)
-            """, (article_id, ticker))
-
+        await publish_news(article_id, title, timestamp, mentions)
 
 async def main():
-    con = duckdb.connect(DB_PATH)
-
     while True:
         print(f"[{datetime.utcnow()}] 🔎 Polling GDELT...")
         articles = await fetch_news()
         if articles:
             print(f"[+] {len(articles)} articles fetched.")
-            save_to_db(con, articles)
+            await save_to_db(articles)
         else:
             print("[-] No articles found.")
-        await asyncio.sleep(900)  # 15 min
+        await asyncio.sleep(900)
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
-
-        # con = duckdb.connect(DB_PATH)
-        # pd.set_option("display.max_rows", None)  # show all when printing
-        # df = con.execute("SELECT * FROM news_articles ORDER BY timestamp").fetchdf()
-        # print(df)
-
-        # con.execute("""
-        #     DELETE FROM news_articles;
-        #     DELETE FROM ticker_mentions;
-        # """)
     except KeyboardInterrupt:
         print("Stream stopped by user")

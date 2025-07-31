@@ -1,3 +1,4 @@
+import asyncio
 import feedparser
 import duckdb
 import hashlib
@@ -5,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import time
 import pandas as pd
+from src.data.database_utils import publish_news
 
 RSS_FEEDS = [
     "https://finance.yahoo.com/rss/",
@@ -28,13 +30,11 @@ COMPANY_NAMES = {
     "XRP": "XRP"
 }
 keywords = [key for key in COMPANY_NAMES.keys()]
-DB_PATH = (Path(__file__).resolve().parent.parent / "data" / "market_attention.duckdb")
-DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 def hash_id(text):
     return hashlib.sha256(text.encode()).hexdigest()
 
-def poll_rss(con):
+async def poll_rss():
     print(f"[{datetime.utcnow()}] Polling RSS feeds...")
     total = 0
 
@@ -44,50 +44,26 @@ def poll_rss(con):
             title = entry.title
             link = entry.link
             timestamp = datetime.fromtimestamp(time.mktime(entry.published_parsed), timezone.utc)
+            article_id = hash_id(url)
 
             mentions = [
                 ticker for name, ticker in COMPANY_NAMES.items()
                 if (name.lower() in title.lower()) or (ticker.lower() in title.lower())
             ]
+
             if mentions:
-                store_article(con, title, link, timestamp, mentions)
+                await publish_news(article_id, title, timestamp, mentions)
                 total += 1
 
-    print(f"[+] Stored {total} matched articles.")
+    print(f"RSS [+] Stored {total} matched articles.")
 
-def store_article(con, title, url, timestamp, mentions):
-    article_id = hash_id(url)
-
-    try:
-        con.execute("""
-            INSERT INTO news_articles (article_id, title, timestamp)
-            VALUES (?, ?, ?)
-        """, (article_id, title, timestamp))
-    except duckdb.ConstraintException:
-        return
-
-    for ticker in mentions:
-        con.execute("""
-            INSERT INTO ticker_mentions (article_id, ticker)
-            VALUES (?, ?)
-        """, (article_id, ticker))
-
+async def main():
+    while True:
+        await poll_rss()
+        time.sleep(900)
 
 if __name__ == "__main__":
-    con = duckdb.connect(DB_PATH)
     try:
-        while True:
-            poll_rss(con)
-            time.sleep(900)
-
-            # con = duckdb.connect(DB_PATH)
-            # pd.set_option("display.max_rows", None)  # show all when printing
-            # df = con.execute("SELECT * FROM news_articles ORDER BY timestamp").fetchdf()
-            # print(df)
-
-            # con.execute("""
-            #     DELETE FROM news_articles;
-            #     DELETE FROM ticker_mentions;
-            # """)
+        asyncio.run(main())
     except KeyboardInterrupt:
         print("RSS stream stopped.")
