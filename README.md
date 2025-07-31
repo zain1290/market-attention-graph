@@ -1,16 +1,65 @@
-# Market Attention Graph
+# Market Attention Dashboard🔹
 
-A real-time, graph-based project modeling co-mention relationships and volatility prediction for key stocks and cryptocurrencies.
-“When attention shifts to a stock, how does it propagate to related names (supply chain, sector, correlated firms), and can we preemptively detect ‘spillover volatility’?”
+A real-time market intelligence dashboard combining live price feeds, 
+news sentiment, and social signals across Reddit, 
+Twitter, and major RSS/News sources.
+> Built with: `Streamlit`, `DuckDB`, `async collectors`, `LSTM models`, and a sprinkle of ✨ automation magic.
 
-#### Tickers Tracked:
+---
+
+## 🌐 Quickstart Live Demo (Streamlit Cloud)
+> Try the **dashboard demo** using historical snapshots:
+
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io/yourapp)
+
+---
+
+## ⚡ Full Setup (Live Mode)
+Requires .env with credentials and cookies.json for X.com(Twitter).
+
+---
+
+> Requires `.env` with credentials and `cookies.json` for Twitter
+
+### 1. Add Environment Variables
+
+```ini
+# .env file
+REDDIT_CLIENT_ID=xxx
+REDDIT_CLIENT_SECRET=xxx
+USER_AGENT=yourapp
+ALPACA_KEY=xxx
+ALPACA_SECRET=xxx
+# cookies.json
+{}
+```
+
+### 2. Start Collectors
+
+```bash
+python run.py
+```
+
+> Writes live data into `/data/` using DuckDB + Parquet
+
+### 3. Launch Dashboard
+
+```bash
+streamlit run src/dashboard/Z-Dash.py
+```
+
+---
+
+
+## ✨ Tickers Tracked:
 - Stocks: Google, Apple, Amazon, Nvidia, Microsoft
 - Crypto: Bitcoin, XRP
 
+---
 
-### Project: Market Attention Propagation Model (Python, ML, Graphs)
+## 🎓 Project: Market Attention Propagation Model (Python, ML, Graphs)
 
-- Design a graph-based model to analyze how co-mentions of companies across real-time financial news, social media, and job listings drive short-term volatility in U.S. equities.
+- Design a graph-based model to analyze how co-mentions of companies across real-time financial news and social media drive short-term volatility in U.S. equities.
 
 - Engineer a temporal attention graph, and apply ML classifiers to predict volatility clusters based on information propagation.
 
@@ -18,50 +67,67 @@ A real-time, graph-based project modeling co-mention relationships and volatilit
 
 ---
 
+## 🎡 Features
+
+### 🚀 Unified Dashboard:
+
+- Live & historical price charts (Binance + Alpaca)
+
+- Real-time news mentions from GDELT, RSS, and Twitter (Twikit)
+
+- Multi-ticker price vs return charts
+
+- Adjustable window (1h to 24h) via sidebar
+
+- Interactive visualizations using plotly, networkx, matplotlib, altair and seaborn to show:
+
+  - Real-time attention graph
+  - Volatility clusters (heatmap)
+  - Predicted vs. realized volatility spikes
+
 ---
 
-1. Data Pipeline | Scrape/stream data from:
+### 🪀 Intelligent Data Collection:
 
-- Alpaca for live stock prices
+- Async collectors feed data into a DuckDB instance
 
-- Binance for live crypto prices
+- Modular sources:
 
-- GDELT
+  - Binance WebSocket (crypto)
+  - Alpaca WebSocket (stocks)
+  - GDELT API (global news)
+  - RSS feeds (Bloomberg, NYTimes, etc)
+  - Twitter (via `twikit` and cookies)
 
-- RSS Feed 
-
-- Filtered X.com(Twitter) stream
-
----
-
-2. Attention Graph Construction:
+### 📈 Attention Graph Construction:
 
 - Nodes: Companies (tickers)
 
 - Edges: Links if companies are co-mentioned, in same news thread
 
-- Edge weight: Strength/frequency of attention co-occurrence
+- Edge weight: Strength/frequency of attention co-occurrence, the closer and thicker the edge, the stronger the weight.
 
 - Update the graph over time → temporal graph
 
 ---
 
-3. Volatility Prediction Module
+### 📊 Prototype Forecasting:
 
-- Use historical price data (e.g., yfinance, polygon.io)
+- Train model with live data gathered over time, re-train when needed.
 
-- For each "attention wave", look at: local volatility spike, trade volume, bid-ask spread changes
+- Each ticker has its own LSTM model, trained on:
 
-- Label events where volatility jumped and use classification (XGBoost, LSTM, or Random Forest) to predict when that will happen based on attention patterns.
+  - `return` (from price data)
+  - `mentions` (from news + X)
+
+- Auto-retrains if model not found or user selects "Retrain now"
+
+- Visual prediction vs actual chart overlay
 
 ---
 
-4. Visualization Dashboard
+## 📍 Author
 
-- Use plotly, networkx, or dash to show:
+· Made with ❤️ by Zain Qureshi · 
 
-- Real-time attention graph
-
-- Volatility clusters (heatmap)
-
-- Predicted vs. realized volatility spikes
+---
