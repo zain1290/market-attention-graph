@@ -5,19 +5,19 @@ news sentiment, and social signals across Reddit,
 Twitter, and major RSS/News sources.
 > Built with: `Streamlit`, `DuckDB`, `async collectors`, `LSTM models`, and a sprinkle of ✨ automation magic.
 
----
+---  
 
 ## 🌐 Quickstart Live Demo (Streamlit Cloud)
 > Try the **dashboard demo** using historical snapshots:
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io/yourapp)
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://market-attention-dashboard-zq.streamlit.app/)
+
+<video src="https://github.com/user-attachments/assets/d84693c7-47d7-4450-ae24-2b9352bf6f3f"
+       width="600" controls poster="assets/thumbnail.jpg"></video>
 
 ---
 
 ## ⚡ Full Setup (Live Mode)
-Requires .env with credentials and cookies.json for X.com(Twitter).
-
----
 
 > Requires `.env` with credentials and `cookies.json` for Twitter
 
